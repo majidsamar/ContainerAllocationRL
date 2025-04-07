@@ -1,4 +1,8 @@
 # 2d_action_space_top_view_and_stack_height_isSorted
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 
 import time
 import numpy as np
@@ -10,7 +14,7 @@ import random
 from datetime import datetime,timedelta
 from helper.visualization import YardVisualizer,plot_q_values,plot_learning_progress
 from collections import deque
-import os
+
 
 from helper.logger import TimeLogger
 logger = TimeLogger()
