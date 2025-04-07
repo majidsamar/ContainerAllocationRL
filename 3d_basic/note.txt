@@ -1,0 +1,3 @@
+this is the basic solution
+using 3d state representation and also 3d action space
+using MPL nn

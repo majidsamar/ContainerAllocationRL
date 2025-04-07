@@ -1,0 +1,3 @@
+this is the 3d convolutional solution
+using 3d state representation and also 3d action space
+using convolutional nn
