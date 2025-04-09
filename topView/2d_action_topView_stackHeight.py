@@ -6,16 +6,19 @@ import torch.optim as optim
 import torch.nn.functional as F
 import random
 from datetime import datetime,timedelta
-from visualization import YardVisualizer,plot_q_values,plot_learning_progress
+from ContainerAllocationRL.helper.visualization import YardVisualizer,plot_q_values,plot_learning_progress
 from collections import deque
 import os
+import pandas as pd
 
-from logger import TimeLogger
+from ContainerAllocationRL.helper.logger import TimeLogger
 logger = TimeLogger()
 
 print("Is CUDA available?", torch.cuda.is_available())
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = "cpu"
+
+DRAW_GRAPH = False
 #dqn parameters
 GAMMA = 0.99
 LR = 0.001
@@ -44,9 +47,11 @@ DWELL_COMPATIBLE_REWARD = 1
 #run parameters
 NUM_CONTAINERS_PER_EPISODE = 3
 NUM_EPISODES = 300
-TEST_EPISODES = 3
+TEST_EPISODES = 2
 
-MODEL_PATH =f'topView/models/dqn_2d_state_2d_action_model_xyz_{BAYS}{ROWS}{TIERS}_episodes_{NUM_EPISODES}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.mdl'
+MODEL_PATH =f'ContainerAllocationRL/topView/outputs/model_topView_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.mdl'
+TRAIN_LOSS_REWARD_PATH =f'ContainerAllocationRL/topView/outputs/loss_reward_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
+TEST_OPERATION_PATH =f'ContainerAllocationRL/topView/outputs/test_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
 
 
 # from google.colab import auth
@@ -351,8 +356,8 @@ def run_dqn():
             total_reward += reward
 
         avg_loss = episode_loss / max(loss_count, 1)
-        episode_losses.append(avg_loss)
 
+        episode_losses.append(avg_loss)
         episode_rewards.append(total_reward)
         epsilon_values.append(agent.epsilon)
 
@@ -366,40 +371,64 @@ def run_dqn():
     print(f"\nModel saved to {MODEL_PATH}!")
     print(f"\nMax reward calculated:{max(episode_rewards)}\n")
 
-    plot_q_values(qMaxValues=agent.qMaxValuesInABatch,qMinValues=agent.qMinValuesInABatch)
-    plot_learning_progress(episode_rewards, episode_losses, epsilon_values)
+    df = pd.DataFrame({
+        "Loss": episode_losses,
+        "Reward": episode_rewards
+    })
+
+    # Save the DataFrame as a CSV file
+    df.to_csv(TRAIN_LOSS_REWARD_PATH,index=False)
+
+    if DRAW_GRAPH:
+        plot_q_values(qMaxValues=agent.qMaxValuesInABatch,qMinValues=agent.qMinValuesInABatch)
+        plot_learning_progress(episode_rewards, episode_losses, epsilon_values)
 
 def run_test_agent(model_path):
     env = ContainerYardEnv()
     agent = DQNAgent(env)
     if os.path.exists(model_path):
-        agent.q_network.load_state_dict(torch.load(model_path))
+        agent.q_network.load_state_dict(torch.load(model_path,weights_only=True))
         agent.q_network.eval()
         print("\n Loaded trained model!")
 
     agent.epsilon = 0  # Only exploitation
 
+    operation = {"round": [], "step": [], "currentContainer": [], "tier": [], "row": [], "bay": [], "reward": []}
     for test in range(TEST_EPISODES):
 
         state = env.reset(yard_container_count=int(env.tiers * env.rows * env.bays * INITIAL_YARD_OCCUPIED_RATIO),
                           cover_tier0=False)
-        for _ in range(NUM_CONTAINERS_PER_EPISODE):  # multiple container per episode
+
+        for stp in range(NUM_CONTAINERS_PER_EPISODE):  # multiple container per episode
             action = agent.select_action(state=state)
             next_state, reward, done = env.step(action)
 
             tier, row, bay = env.action_to_bay_row_tier_for_state(action,state)
 
-            visualizer = YardVisualizer(BAYS, ROWS, TIERS)
 
-            yard3d = env.state_to_3d_yard(state=state)
-            visualizer.set_yard( yard=yard3d)
-            visualizer.draw_yard(allocated_cube_bay=bay,
-                                 allocated_cube_row=row,
-                                 allocated_cube_tier=tier,
-                                 allocated_cube_color=(0, 1, 0, 1))
+            if DRAW_GRAPH:
+                visualizer = YardVisualizer(BAYS, ROWS, TIERS)
 
-            print(f" Test {test + 1}: Placed container at ({bay}, {row}), Reward: {reward} \n")
+                yard3d = env.state_to_3d_yard(state=state)
+                visualizer.set_yard( yard=yard3d)
+                visualizer.draw_yard(allocated_cube_bay=bay,
+                                     allocated_cube_row=row,
+                                     allocated_cube_tier=tier,
+                                     allocated_cube_color=(0, 1, 0, 1))
+
+            print(f" Test {test}: Placed container at ({bay}, {row}), Reward: {reward} \n")
+            operation["round"].append(test)
+            operation["step"].append(stp)
+            operation["currentContainer"].append(env.yard_top_view[row,bay])
+            operation["tier"].append(tier)
+            operation["row"].append(row)
+            operation["bay"].append(bay)
+            operation["reward"].append(reward)
+
             state=next_state
+
+    df = pd.DataFrame(operation)
+    df.to_csv(TEST_OPERATION_PATH, index=False)
 
 start_time=time.time()
 print(f"code starting at:{datetime.now()}")
