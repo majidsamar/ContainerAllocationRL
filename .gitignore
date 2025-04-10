@@ -1,7 +1,7 @@
 # Ignore Python bytecode files
 *.pyc
 __pycache__/
-
+*.csv
 *.rdl
 .idea/
 

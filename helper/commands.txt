@@ -1,4 +1,11 @@
 module load Anaconda3/2024.02-1
 eval "$(conda shell.bash hook)"
 conda activate rl_env
+
 python -m ContainerAllocationRL.topView.2d_action_topView_stackHeight
+
+python -m ContainerAllocationRL.topView_isSorted.2d_action_topView_stackHeight_isSorted
+
+python -m ContainerAllocationRL.convolutional.3d_action_space_conv
+
+python -m ContainerAllocationRL.3d_basic.basic_solution
