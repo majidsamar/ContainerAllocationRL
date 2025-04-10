@@ -4,4 +4,5 @@ __pycache__/
 *.csv
 *.rdl
 .idea/
+hpcResults/
 

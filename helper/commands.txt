@@ -1,11 +1,47 @@
+ms21w085@submit02.unibe.ch
+
 module load Anaconda3/2024.02-1
 eval "$(conda shell.bash hook)"
 conda activate rl_env
+
+
+python -m ContainerAllocationRL.3d_basic.test_env
+python -m ContainerAllocationRL.3d_basic.basic_solution
 
 python -m ContainerAllocationRL.topView.2d_action_topView_stackHeight
 
 python -m ContainerAllocationRL.topView_isSorted.2d_action_topView_stackHeight_isSorted
 
 python -m ContainerAllocationRL.convolutional.3d_action_space_conv
+---------------------------------------------------
+scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/topView/outputs/*.* .
 
-python -m ContainerAllocationRL.3d_basic.basic_solution
+
+
+
+
+C:\hpcResults
+
+#!/bin/bash
+#
+#SBATCH --job-name=rl_cont_alloc_topview
+#SBATCH --output=logs/rl_topview__%j.out
+#SBATCH --error=logs/rl_top_view__%j.err
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=8G
+#SBATCH --time=04:00:00
+#SBATCH --partition=cpu
+
+module load Anaconda3/2024.02-1
+
+eval "$(conda shell.bash hook)"
+
+conda activate rl_env
+
+/storage/homefs/ms21w085
+
+cd /storage/homefs/ms21w085/RL
+python -m ContainerAllocationRL.topView.2d_action_topView_stackHeight
+
+

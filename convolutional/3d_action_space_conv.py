@@ -21,9 +21,9 @@ device = torch.device("cpu")
 #dqn parameters
 GAMMA = 0.99
 LR = 0.001
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 MEMORY_SIZE = 1_000_000
-EPSILON_START = 1
+EPSILON_START = 1.0
 EPSILON_END = 0.005
 EPSILON_DECAY = 0.997
 TARGET_UPDATE = 100
@@ -31,7 +31,7 @@ TARGET_UPDATE = 100
 # yard parameters
 INITIAL_YARD_OCCUPIED_RATIO = 0
 MAX_DWELL_DAYS = 20
-BAYS = 6  # X-axis
+BAYS = 10  # X-axis
 ROWS = 4  # Y-axis
 TIERS = 3  # Stack height
 
@@ -46,9 +46,9 @@ DWELL_COMPATIBLE_REWARD = 1
 
 
 #run parameters
-NUM_CONTAINERS_PER_EPISODE = 5
-NUM_EPISODES = 100
-TEST_EPISODES = 2
+NUM_CONTAINERS_PER_EPISODE = 100
+NUM_EPISODES = 20_000
+TEST_EPISODES = 5
 
 
 # MODEL_PATH =(f'convolutional/models/conv_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{datetime.now().strftime("%Y_%m_%d__%H")}.mdl')
@@ -250,7 +250,6 @@ class DQN(nn.Module):
 
         self.conv1_out_channels = 8
         self.conv2_out_channels = 16
-        self.linear_size = 256 # feature size = 16 * 2 * 4 + 60 = 188
 
         self.conv1 = nn.Conv2d(TIERS, self.conv1_out_channels, kernel_size=(2, 2), stride=1, padding=0)
         self.conv2 = nn.Conv2d(self.conv1_out_channels, self.conv2_out_channels, kernel_size=(2, 2), stride=1, padding=0)
@@ -263,8 +262,10 @@ class DQN(nn.Module):
 
         self.feature_size = self.conv2_out_channels * conv_output_dims[0] * conv_output_dims[1] + num_containers
 
-        self.fc1 = nn.Linear(self.feature_size, self.linear_size)
-        self.fc2 = nn.Linear(self.linear_size, output_dim)
+
+        # this 50 just for the output be larger than the input size
+        self.fc1 = nn.Linear(self.feature_size, self.feature_size + 50)
+        self.fc2 = nn.Linear(self.feature_size + 50, output_dim)
 
     @logger.log_time
     def forward(self, x):
