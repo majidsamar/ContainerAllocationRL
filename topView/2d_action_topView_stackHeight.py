@@ -60,11 +60,7 @@ TEST_OPERATION_PATH =f'ContainerAllocationRL/topView/outputs/test_{datetime.now(
 # np.random.seed(123)
 # random.seed(123)
 
-@logger.log_time
-def action_to_bay_row(action): # 2d action space, row and tier
-    bay = action % BAYS
-    row = action // BAYS
-    return bay,row
+
 
 class ContainerYardEnv:
     def __init__(self, bays=BAYS, rows=ROWS, tiers=TIERS):
@@ -74,6 +70,11 @@ class ContainerYardEnv:
         self.queue_length = NUM_CONTAINERS_PER_EPISODE
         self.yard_state_length = (self.bays * self.rows * 2) + self.queue_length
 
+    @logger.log_time
+    def action_to_bay_row(self,action):  # 2d action space, row and tier
+        bay = action % BAYS
+        row = action // BAYS
+        return bay, row
     @logger.log_time
     def reset(self, yard_container_count,cover_tier0=False):
         """ Resets the yard and initializes a random state for the number of containers. """
@@ -131,7 +132,7 @@ class ContainerYardEnv:
         # ------- bay ---------
         # 0   1   2   3   4
 
-        bay, row = action_to_bay_row(action)
+        bay, row = self.action_to_bay_row(action)
         next_container = self.container_queue.pop(0)  # Remove first container from queue
 
         if self.stack_height[row,bay] == self.tiers: # tier is full
@@ -174,7 +175,7 @@ class ContainerYardEnv:
 
     @logger.log_time
     def get_valid_actions_for_state(self, state):
-        # unflatten the state and extract only stack height for valid actoin calculation
+        # unflatten the state and extract only stack height for valid action calculation
         # yard_top_view = state[:self.yard_state_length].reshape((self.rows, self.bays))
         # container_queue = state[2 * self.yard_state_length:]
         stacks_count = self.rows * self.bays
@@ -190,7 +191,7 @@ class ContainerYardEnv:
         stacks_count = self.rows * self.bays
         stack_height = state[stacks_count:2 * stacks_count].reshape((self.rows, self.bays))
 
-        bay,row = action_to_bay_row(action)
+        bay,row = self.action_to_bay_row(action)
 
         new_tier = stack_height[row,bay] + 1
         return new_tier, row, bay

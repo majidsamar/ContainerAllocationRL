@@ -2,7 +2,7 @@
 *.pyc
 __pycache__/
 *.csv
-*.rdl
+*.mdl
 .idea/
 hpcResults/
 
