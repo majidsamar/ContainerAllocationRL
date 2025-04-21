@@ -1,0 +1,8 @@
+this is the top view, is sorted solution and variable queue lenght in training
+using top view and stack height and is sorted dimension for state representation and also 2d action space
+using MPL nn
+the problem in the previous experiments was I saw
+good performance for 843 and 80 queue lenght but very
+bad performance for 95 containers in the queue.
+ so may be by increasing the queue size during training I will get reasonalbe decline in performance
+ as the length of the state space increases
