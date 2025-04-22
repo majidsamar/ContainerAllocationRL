@@ -49,9 +49,10 @@ NUM_CONTAINERS_PER_EPISODE = 3
 NUM_EPISODES = 300
 TEST_EPISODES = 2
 
-MODEL_PATH =f'ContainerAllocationRL/topView/outputs/model_topView_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.mdl'
-TRAIN_LOSS_REWARD_PATH =f'ContainerAllocationRL/topView/outputs/loss_reward_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
-TEST_OPERATION_PATH =f'ContainerAllocationRL/topView/outputs/test_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
+rsn = random.randint(10,99)
+MODEL_PATH =f'ContainerAllocationRL/topView/outputs/model_{rsn}_topView_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.mdl'
+TRAIN_LOSS_REWARD_PATH =f'ContainerAllocationRL/topView/outputs/loss_reward_{rsn}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
+TEST_OPERATION_PATH =f'ContainerAllocationRL/topView/outputs/test_{rsn}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
 
 
 # from google.colab import auth
@@ -153,7 +154,7 @@ class ContainerYardEnv:
 
         # large penalty: Placing in a full bay (no valid tier)
         if self.stack_height[row,bay] == self.tiers : # tier is full .should be filtered out in step function
-            raise ValueError("The row, bay here is impossible should be filtered out")
+            raise ValueError("The row, bay here is impossible should be filtered out earlier")
 
         # medium penalty: Bad stacking which shorter stay container is below :(
         if self.stack_height[row, bay] > 0: # stack is not empty
@@ -399,7 +400,7 @@ def run_test_agent(model_path):
 
         state = env.reset(yard_container_count=int(env.tiers * env.rows * env.bays * INITIAL_YARD_OCCUPIED_RATIO),
                           cover_tier0=False)
-
+        num_bad_alloc=0
         for stp in range(NUM_CONTAINERS_PER_EPISODE):  # multiple container per episode
             action = agent.select_action(state=state)
             next_state, reward, done = env.step(action)
@@ -427,6 +428,9 @@ def run_test_agent(model_path):
             operation["reward"].append(reward)
 
             state=next_state
+
+
+
 
     df = pd.DataFrame(operation)
     df.to_csv(TEST_OPERATION_PATH, index=False)

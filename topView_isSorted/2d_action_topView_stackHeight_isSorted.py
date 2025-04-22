@@ -55,9 +55,11 @@ NUM_EPISODES = 300
 TEST_EPISODES = 2
 # "C:\Users\MajidSamar\Desktop\DATA_backup on 25-10-2024 before onedrive activation chaos\pv\unibe\thz\source code\rl test\RL_Project\RL_Tests\containerAllocation\current_allocation\
 # 2d_TV_SH_IS_2d_423_10000_2025_04_06.mdl"
-MODEL_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/model_topView_isSorted_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.mdl'
-TRAIN_LOSS_REWARD_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/loss_reward_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
-TEST_OPERATION_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/test_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
+
+rsn = random.randint(10,99)
+MODEL_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/model_{rsn}_topView_isSorted_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.mdl'
+TRAIN_LOSS_REWARD_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/loss_reward_{rsn}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
+TEST_OPERATION_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/test_{rsn}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
 
 DRAW_GRAPH = False
 

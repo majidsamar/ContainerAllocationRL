@@ -1,0 +1,5 @@
+this is the top view, is sorted solution with limited queue
+using top view and stack height and is sorted dimension  and also limited number of contianer
+in the queue instead of all of them for state representation
+ and also 2d action space
+using MPL nn

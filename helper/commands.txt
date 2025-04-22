@@ -15,7 +15,9 @@ python -m ContainerAllocationRL.topView_isSorted.2d_action_topView_stackHeight_i
 python -m ContainerAllocationRL.convolutional.3d_action_space_conv
 ---------------------------------------------------
 scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/topView/outputs/*.* .
+scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/topView_isSorted/outputs/*.* .
 
+scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/convolutional/outputs/*.* .
 
 
 
@@ -28,9 +30,9 @@ C:\hpcResults
 #SBATCH --output=logs/rl_topview__%j.out
 #SBATCH --error=logs/rl_top_view__%j.err
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=8G
-#SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=48
+#SBATCH --mem=16G
+#SBATCH --time=24:00:00
 #SBATCH --partition=cpu
 
 module load Anaconda3/2024.02-1
@@ -44,4 +46,6 @@ conda activate rl_env
 cd /storage/homefs/ms21w085/RL
 python -m ContainerAllocationRL.topView.2d_action_topView_stackHeight
 
+or
+python -m ContainerAllocationRL.topView_isSorted.2d_action_topView_stackHeight_isSorted
 
