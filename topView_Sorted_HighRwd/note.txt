@@ -1,0 +1,7 @@
+this is the top view, is sorted solution
+
+the idea here is to reward having full stack and not to spread much so in the
+future when is about to reach to the full yard block we have less troubles
+
+or penalize putting on lower stacks when the space is tight
+
