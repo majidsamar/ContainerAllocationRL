@@ -58,7 +58,7 @@ TEST_EPISODES = 2
 # 2d_TV_SH_IS_2d_423_10000_2025_04_06.mdl"
 
 rsn = random.randint(10,99)
-MODEL_PATH =f'ContainerAllocationRL/topView_Sorted_HighRwd/outputs/model_{rsn}_topView_isSorted_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
+MODEL_PATH =f'ContainerAllocationRL/topView_Sorted_HighRwd/outputs/model_{rsn}_topView_isSorted_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
 TRAIN_LOSS_REWARD_PATH =f'ContainerAllocationRL/topView_Sorted_HighRwd/outputs/loss_reward_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
 TEST_OPERATION_PATH =f'ContainerAllocationRL/topView_Sorted_HighRwd/outputs/test_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
 
@@ -187,8 +187,9 @@ class ContainerYardEnv:
                 if self.is_stack_sorted[row,bay] == 1:
                     # now it won't be sorted anymore, the update of is_stack_sorted will be done on step function
                     reward += STACK_SORTING_DAMAGE
-                    reward += (self.stack_height[row,bay] + 1) * STACK_TIGHT_REWARD_UNIT
+
             else:
+                reward += self.stack_height[row, bay] * STACK_TIGHT_REWARD_UNIT
                 reward += DWELL_COMPATIBLE_REWARD
         else: # stack is empty
             reward += DWELL_COMPATIBLE_REWARD

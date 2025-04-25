@@ -57,7 +57,7 @@ TEST_EPISODES = 2
 # 2d_TV_SH_IS_2d_423_10000_2025_04_06.mdl"
 
 rsn = random.randint(10,99)
-MODEL_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/model_{rsn}_topView_isSorted_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.mdl'
+MODEL_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/model_{rsn}_topView_isSorted_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.mdl'
 TRAIN_LOSS_REWARD_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/loss_reward_{rsn}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
 TEST_OPERATION_PATH =f'ContainerAllocationRL/topView_isSorted/outputs/test_{rsn}_{datetime.now().strftime("%Y_%m_%d__%H_%M")}.csv'
 
