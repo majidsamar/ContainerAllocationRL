@@ -31,34 +31,42 @@ MEMORY_SIZE = 1_000_000
 EPSILON_START = 1
 EPSILON_END = 0.005
 EPSILON_DECAY = 0.998
-TARGET_UPDATE = 50
+TARGET_UPDATE = 128
 
 # yard parameters
 INITIAL_YARD_OCCUPIED_RATIO = 0
 MAX_DWELL_DAYS = 20
-BAYS = 4  # X-axis
-ROWS = 2  # Y-axis
-TIERS = 3  # Stack height
+BAYS = 5  # X-axis
+ROWS = 3  # Y-axis
+TIERS = 4  # Stack height
 
 FILL_TIER0_AS_INITIALIZATION = False # how to initialize the yard block
 
 # rewards
 NO_AVAILABLE_SPACE_OR_ON_AIR = -1000
 # LESS_CROWDED_AREA_REWARD = 0
+
+# base values
+# DWELL_VIOLATION_REWARD = -10
+# STACK_SORTING_DAMAGE = -20
+# DWELL_COMPATIBLE_REWARD = 1
+# STACK_TIGHT_REWARD_UNIT = 1
+
+
 DWELL_VIOLATION_REWARD = -10
 STACK_SORTING_DAMAGE = -20
 DWELL_COMPATIBLE_REWARD = 1
 STACK_TIGHT_REWARD_UNIT = 1
 
 #run parameters
-NUM_CONTAINERS_PER_EPISODE = 18
-NUM_EPISODES = 300
-TEST_EPISODES = 2
+NUM_CONTAINERS_PER_EPISODE = 60
+NUM_EPISODES = 5000
+TEST_EPISODES = 100
 # "C:\Users\MajidSamar\Desktop\DATA_backup on 25-10-2024 before onedrive activation chaos\pv\unibe\thz\source code\rl test\RL_Project\RL_Tests\containerAllocation\current_allocation\
 # 2d_TV_SH_IS_2d_423_10000_2025_04_06.mdl"
 
 rsn = random.randint(10,99)
-MODEL_PATH =f'ContainerAllocationRL/topView_Sorted_HighRwd/outputs/model_{rsn}_topView_isSorted_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
+MODEL_PATH =f'ContainerAllocationRL/topView_Sorted_HighRwd/outputs/model_{rsn}_topVSortHighRwd_{BAYS}{ROWS}{TIERS}_{NUM_EPISODES}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
 TRAIN_LOSS_REWARD_PATH =f'ContainerAllocationRL/topView_Sorted_HighRwd/outputs/loss_reward_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
 TEST_OPERATION_PATH =f'ContainerAllocationRL/topView_Sorted_HighRwd/outputs/test_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
 
@@ -118,7 +126,7 @@ class ContainerYardEnv:
 
     @logger.log_time
     def random_yard_initialization(self, container_count,cover_tier0):
-        """ the rule in initialization is no container can be on the fly!!"""
+
         if not cover_tier0:
             count = 0
             while count < container_count:

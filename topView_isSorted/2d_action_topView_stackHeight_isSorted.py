@@ -51,8 +51,8 @@ DWELL_COMPATIBLE_REWARD = 1
 
 #run parameters
 NUM_CONTAINERS_PER_EPISODE = 18
-NUM_EPISODES = 300
-TEST_EPISODES = 2
+NUM_EPISODES = 2000
+TEST_EPISODES = 10
 # "C:\Users\MajidSamar\Desktop\DATA_backup on 25-10-2024 before onedrive activation chaos\pv\unibe\thz\source code\rl test\RL_Project\RL_Tests\containerAllocation\current_allocation\
 # 2d_TV_SH_IS_2d_423_10000_2025_04_06.mdl"
 
