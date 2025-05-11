@@ -1,4 +1,5 @@
 ms21w085@submit02.unibe.ch
+Oceanmist_8488
 
 module load Anaconda3/2024.02-1
 eval "$(conda shell.bash hook)"
@@ -13,6 +14,8 @@ python -m ContainerAllocationRL.topView.2d_action_topView_stackHeight
 python -m ContainerAllocationRL.topView_isSorted.2d_action_topView_stackHeight_isSorted
 
 python -m ContainerAllocationRL.convolutional.3d_action_space_conv
+
+
 ---------------------------------------------------
 scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/topView/outputs/*.* .
 scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/topView_isSorted/outputs/*.* .
@@ -48,4 +51,42 @@ python -m ContainerAllocationRL.topView.2d_action_topView_stackHeight
 
 or
 python -m ContainerAllocationRL.topView_isSorted.2d_action_topView_stackHeight_isSorted
+
+--------------------------------
+some git commnads:
+git remote add origin https://github.com/majidsamar/tstMrg4.git
+
+git push origin master
+git push origin feature
+
+
+
+
+git log --oneline --graph --all --decorate
+
+git branch -D feature
+git push origin --delete feature
+
+to have a clean merge from a branch A into master and do not bring all trial and error of intermediate
+steps, the best way is to:
+1- Squash and merge (most common & recommended)
+
+git checkout master
+git merge --squash feature-branch
+git commit -m "Add final implementation of XYZ"
+git push
+
+
+or 2-
+
+git checkout feature-branch
+git rebase -i HEAD~10    # or however many commits you want to squash
+# squash all into one
+git checkout master
+git merge feature-branch
+
+git push -f origin feature
+--force
+
+or 3-
 

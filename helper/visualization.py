@@ -10,31 +10,45 @@ class YardVisualizer:
     def set_yard(self, yard):
         self.yard = yard
 
+    def draw_yard(self):
+        import matplotlib.pyplot as plt
+        from matplotlib import ticker
 
-    def draw_yard(self, allocated_cube_bay, allocated_cube_row, allocated_cube_tier, allocated_cube_color=(1, 1, 0, 1)):
         fig = plt.figure(figsize=(8, 4))
         self.ax = fig.add_subplot(111, projection='3d')
 
-        # Iterate through the yard and draw cubes
+        # Draw cubes
         for z in range(self.tiers):
             for y in range(self.rows):
                 for x in range(self.bays):
                     if self.yard[z, y, x] != 0:
-                        # self.draw_cube(x, y, z)
                         self.draw_cube_2x(x=x, y=y, z=z)
-                        self.add_text_label(x=x, y=y, z=z, dwell_time= self.yard[z, y, x])
-        self.draw_cube_2x(x=allocated_cube_bay, y=allocated_cube_row, z=allocated_cube_tier,color= allocated_cube_color)
-        # self.draw_cube(allocated_cube_bay, allocated_cube_row, allocated_cube_tier, allocated_cube_color)
-        self.ax.set_xlabel('BAY')
-        self.ax.set_ylabel('ROW')
-        self.ax.set_zlabel('TIER')
+                        self.add_text_label(x=x, y=y, z=z, dwell_time=self.yard[z, y, x])
 
+        # Axis labels with bold blue text
+        self.ax.set_xlabel('BAY', labelpad=10, fontsize=12, color='blue', weight='bold')
+        self.ax.set_ylabel('ROW', labelpad=10, fontsize=12, color='blue', weight='bold')
+        self.ax.set_zlabel('TIER', labelpad=10, fontsize=12, color='blue', weight='bold')
+
+        # Axis limits
         self.ax.set_xlim(0, 2 * self.bays + 1)
         self.ax.set_ylim(0, self.rows + 1)
         self.ax.set_zlim(0, self.tiers + 1)
 
+        # Set grid ticks at even numbers only
+        def even_ticks(max_val):
+            return [i for i in range(0, max_val + 1) if i % 2 == 0]
+
+        self.ax.set_xticks(even_ticks(2 * self.bays + 1))
+        self.ax.set_yticks(even_ticks(self.rows + 1))
+        self.ax.set_zticks(even_ticks(self.tiers + 1))
+
+        # Optional: turn on grid lines manually for visibility
+        self.ax.grid(True)
+
+        # Set box aspect ratio
         self.ax.set_box_aspect([4 * self.bays, 4 * self.rows, 2 * self.tiers])
-        # plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+
         plt.tight_layout()
         plt.show()
 
