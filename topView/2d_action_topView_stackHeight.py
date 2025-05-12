@@ -51,7 +51,7 @@ TEST_EPISODES = 10
 
 rsn = random.randint(1,1000)
 
-folder_path = f'ContainerAllocationRL/topView/outputs/{rsn}'
+folder_path = f'ContainerAllocationRL/topView/outputs/{BAYS}{ROWS}{TIERS}_{rsn}'
 os.makedirs(folder_path, exist_ok=True)
 
 MODEL_PATH =f'{folder_path}/{rsn}_TV_{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
