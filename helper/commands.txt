@@ -89,4 +89,8 @@ git push -f origin feature
 --force
 
 or 3-
+----------------------
 
+git fetch origin
+git reset --hard origin/your-branch-name
+git clean -fd
