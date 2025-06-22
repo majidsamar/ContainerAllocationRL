@@ -3,7 +3,6 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
 import time
 import numpy as np
 import pandas as pd
@@ -203,7 +202,7 @@ class ContainerYardEnv:
     def get_valid_actions(self):
         not_full = self.stack_height < self.tiers
         valid_indices = np.where(not_full)
-        actions = valid_indices[0] * self.bays + valid_indices[1]
+        actions = valid_indices[0] * self.bays + valid_indices[1]  # valid_indices[0] : row and  valid_indices[1] :column
         return actions.tolist()
 
     @logger.log_time

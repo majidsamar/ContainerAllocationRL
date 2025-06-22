@@ -1,6 +1,12 @@
 ms21w085@submit02.unibe.ch
 Oceanmist_8488
 
+get number of files and folders in a folder:
+find . -mindepth 1 -maxdepth 1 | wc -l
+or
+ll | wc -l
+
+
 module load Anaconda3/2024.02-1
 eval "$(conda shell.bash hook)"
 conda activate rl_env
@@ -18,9 +24,9 @@ python -m ContainerAllocationRL.convolutional.3d_action_space_conv
 
 ---------------------------------------------------
 scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/topView/outputs/*.* .
-scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/topView_isSorted/outputs/*.* .
 
-scp ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/convolutional/outputs/*.* .
+scp -r ms21w085@submit02.unibe.ch:/storage/homefs/ms21w085/RL/ContainerAllocationRL/topView_isSorted/outputs/ .
+
 
 
 
@@ -94,3 +100,6 @@ or 3-
 git fetch origin
 git reset --hard origin/your-branch-name
 git clean -fd
+
+git reset --hard
+

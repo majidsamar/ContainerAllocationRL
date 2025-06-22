@@ -36,9 +36,9 @@ TARGET_UPDATE = 128
 # yard parameters
 INITIAL_YARD_OCCUPIED_RATIO = 0
 MAX_DWELL_DAYS = 20
-BAYS = 4  # X-axis
+BAYS = 9  # X-axis
 ROWS = 3  # Y-axis
-TIERS = 3  # Stack height
+TIERS = 5  # Stack height
 
 FILL_TIER0_AS_INITIALIZATION = False # how to initialize the yard block
 
@@ -59,8 +59,8 @@ DWELL_COMPATIBLE_REWARD = 1
 STACK_TIGHT_REWARD_UNIT = 1
 
 #run parameters
-NUM_CONTAINERS_PER_EPISODE = 10
-NUM_EPISODES = 200
+NUM_CONTAINERS_PER_EPISODE = 135
+NUM_EPISODES = 300
 TEST_EPISODES = 10
 # "C:\Users\MajidSamar\Desktop\DATA_backup on 25-10-2024 before onedrive activation chaos\pv\unibe\thz\source code\rl test\RL_Project\RL_Tests\containerAllocation\current_allocation\
 # 2d_TV_SH_IS_2d_423_10000_2025_04_06.mdl"
@@ -76,7 +76,7 @@ TEST_OPERATION_PATH =f'{folder_path}/test_{rsn}_{datetime.now().strftime("%m_%d_
 
 
 
-DRAW_GRAPH = False
+DRAW_GRAPH = True
 
 
 # from google.colab import auth
