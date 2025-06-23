@@ -29,9 +29,9 @@ print("GPUs:", tf.config.list_physical_devices('GPU'))
 # yard parameters
 INITIAL_YARD_OCCUPIED_RATIO = 0.
 MAX_DWELL_DAYS = 10 # 20
-BAYS = 9  # X-axis
-ROWS = 6  # Y-axis
-TIERS = 5  # Stack height
+BAYS = 4  # X-axis
+ROWS = 3  # Y-axis
+TIERS = 3  # Stack height
 FILL_RATIO = 0.9
 NUM_CONTAINERS_PER_EPISODE = round(BAYS * ROWS * TIERS * (FILL_RATIO - INITIAL_YARD_OCCUPIED_RATIO))
 # NUM_CONTAINERS_PER_EPISODE = 100
@@ -47,8 +47,8 @@ DWELL_VIOLATION_REWARD = -1.
 # DWELL_COMPATIBLE_REWARD = 1
 
 #run parameters
-NUM_EPISODES = 10000
-TEST_EPISODES = 100
+NUM_EPISODES = 10
+TEST_EPISODES = 1
 
 
 rsn = random.randint(10,99)
@@ -592,8 +592,9 @@ def run_dqn():
 
     t = time.time()
 
-    pbar = trange(NUM_EPISODES, desc="Training", unit="ep")
-    for episode in pbar:
+    # pbar = trange(NUM_EPISODES, desc="Training", unit="ep")
+    # for episode in pbar:
+    for episode in range(NUM_EPISODES):
         state, action_mask = env.reset(yard_container_count=int(env.tiers * env.rows * env.bays * INITIAL_YARD_OCCUPIED_RATIO),
                           cover_tier0=FILL_TIER0_AS_INITIALIZATION)
         total_reward = 0
@@ -617,7 +618,7 @@ def run_dqn():
             total_violations += num_violations
 
         avg_loss = episode_loss / max(loss_count, 1)
-        episode_losses.append(avg_loss)
+        episode_losses.append(round(avg_loss,4))
 
         if ema_loss == None:
             ema_loss = avg_loss
@@ -631,8 +632,8 @@ def run_dqn():
         epsilon_values.append(agent.epsilon)
 
         agent.discount_epsilon()
-        pbar.set_postfix(loss=ema_loss, KPI=ema_kpi, eps=agent.epsilon)
-        # print(f"Episode {episode}, Loss Avg:{ema_loss:.4f},  Reward = {ema_reward}, Epsilon = {agent.epsilon:.4f}")
+        # pbar.set_postfix(loss=ema_loss, KPI=ema_kpi, eps=agent.epsilon)
+        print(f"Episode {episode}, Loss Avg:{ema_loss:.4f},  Reward = {total_reward}, Epsilon = {agent.epsilon:.4f}")
 
     agent.q_network.save(MODEL_PATH)
     hours, remainder = divmod(round(time.time()-t), 3600)

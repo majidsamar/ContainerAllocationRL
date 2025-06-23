@@ -57,6 +57,7 @@ python -m ContainerAllocationRL.topView.2d_action_topView_stackHeight
 
 or
 python -m ContainerAllocationRL.topView_isSorted.2d_action_topView_stackHeight_isSorted
+python -m ContainerAllocationRL.tf_encod_sortedMin.tf_encod_sortedMin
 
 --------------------------------
 some git commnads:
