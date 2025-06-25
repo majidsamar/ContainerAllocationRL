@@ -1,6 +1,7 @@
 # 2d_action_space_top_view_and_stack_height_isSorted
 import sys
 import os
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import time
@@ -11,21 +12,21 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import random
-from datetime import datetime,timedelta
-from ContainerAllocationRL.helper.visualization import YardVisualizer,plot_q_values,plot_learning_progress
+from datetime import datetime, timedelta
+from ContainerAllocationRL.helper.visualization import YardVisualizer, plot_q_values, plot_learning_progress
 from collections import deque
 
-
 from ContainerAllocationRL.helper.logger import TimeLogger
+
 logger = TimeLogger()
 
 print("Is CUDA available?", torch.cuda.is_available())
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = "cpu"
-#dqn parameters
+# dqn parameters
 GAMMA = 0.99
 LR = 0.001
-BATCH_SIZE = 256
+BATCH_SIZE = 128
 MEMORY_SIZE = 1_000_000
 EPSILON_START = 1
 EPSILON_END = 0.005
@@ -33,13 +34,14 @@ EPSILON_DECAY = 0.998
 TARGET_UPDATE = 50
 
 # yard parameters
+INITIAL_STACK_MIN_DWELLTIME = 1000  # I put maximum so in the comparison every
 INITIAL_YARD_OCCUPIED_RATIO = 0
 MAX_DWELL_DAYS = 20
 BAYS = 4  # X-axis
-ROWS = 2  # Y-axis
+ROWS = 3  # Y-axis
 TIERS = 3  # Stack height
 
-FILL_TIER0_AS_INITIALIZATION = False # how to initialize the yard block
+FILL_TIER0_AS_INITIALIZATION = False  # how to initialize the yard block
 
 # rewards
 NO_AVAILABLE_SPACE_OR_ON_AIR = -1000
@@ -48,32 +50,30 @@ DWELL_VIOLATION_REWARD = -10
 STACK_SORTING_DAMAGE = -20
 DWELL_COMPATIBLE_REWARD = 1
 
-#run parameters
-NUM_CONTAINERS_PER_EPISODE = 18
-NUM_EPISODES = 200
-TEST_EPISODES = 10
+# run parameters
+NUM_CONTAINERS_PER_EPISODE = round(0.9 * BAYS * ROWS * TIERS )
+NUM_EPISODES = 10000
+TEST_EPISODES = 100
 # "C:\Users\MajidSamar\Desktop\DATA_backup on 25-10-2024 before onedrive activation chaos\pv\unibe\thz\source code\rl test\RL_Project\RL_Tests\containerAllocation\current_allocation\
 # 2d_TV_SH_IS_2d_423_10000_2025_04_06.mdl"
 
-rsn = random.randint(1,1000)
+rsn = random.randint(1, 1000)
 
-folder_path = f'ContainerAllocationRL/topView_isSorted/outputs/{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{rsn}'
+folder_path = f'ContainerAllocationRL/min_isSorted_encoder/outputs/{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{rsn}'
 os.makedirs(folder_path, exist_ok=True)
 
-MODEL_PATH =f'{folder_path}/{rsn}_TVS_{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
-TRAIN_LOSS_REWARD_PATH =f'{folder_path}/loss_reward_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
-TEST_OPERATION_PATH =f'{folder_path}/test_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
+MODEL_PATH = f'{folder_path}/{rsn}_TVS_{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
+TRAIN_LOSS_REWARD_PATH = f'{folder_path}/loss_reward_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
+TEST_OPERATION_PATH = f'{folder_path}/test_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
 
-
-
-DRAW_GRAPH = False
+DRAW_GRAPH = True
 
 
 # from google.colab import auth
 # auth.authenticate_user()
 
-# np.random.seed(123)
-# random.seed(123)
+np.random.seed(123)
+random.seed(123)
 
 class ContainerYardEnv:
     def __init__(self, bays=BAYS, rows=ROWS, tiers=TIERS):
@@ -81,31 +81,26 @@ class ContainerYardEnv:
         self.rows = rows
         self.tiers = tiers
         self.queue_length = NUM_CONTAINERS_PER_EPISODE
-        self.yard_state_length = (self.bays * self.rows * 3) + self.queue_length # 3 = top view, stack height, is sorted
+        self.yard_state_length = (
+                                             self.bays * self.rows * 3) + self.queue_length  # 3 = min in each stack, stack height, is sorted
 
-    @logger.log_time
-    def action_to_bay_row(self,action):  # 2d action space, row and tier
+    def action_to_bay_row(self, action):  # 2d action space, row and tier
         bay = action % BAYS
         row = action // BAYS
         return bay, row
 
-    @logger.log_time
-    def reset(self, yard_container_count,cover_tier0=False):
+    def reset(self, yard_container_count, cover_tier0=False):
         """ Resets the yard and initializes a random state for the number of containers. """
-        self.yard_top_view = np.zeros((self.rows, self.bays), dtype=np.float32)
+        self.stack_min = np.full((self.rows, self.bays), INITIAL_STACK_MIN_DWELLTIME, dtype=np.float32)
         self.stack_height = np.zeros((self.rows, self.bays), dtype=np.float32)
         self.is_stack_sorted = np.ones((self.rows, self.bays), dtype=np.float32)
-
-        self.random_yard_initialization(container_count=yard_container_count, cover_tier0=cover_tier0)
         self.container_queue = [self.generate_container() for _ in range(NUM_CONTAINERS_PER_EPISODE)]
         return self.get_state()
 
-    @logger.log_time
     def generate_container(self):
         # return round(random.uniform(0, 1), 2) # Random dwell time between 0  and  1 and
-        return np.random.randint(1, MAX_DWELL_DAYS) / MAX_DWELL_DAYS # Random dwell time between 0  and  1 and
+        return np.random.randint(1, MAX_DWELL_DAYS) / MAX_DWELL_DAYS  # Random dwell time between 0  and  1 and
 
-    @logger.log_time
     def get_state(self):
         future_containers = np.array(self.container_queue)
         future_containers = np.pad(
@@ -114,36 +109,12 @@ class ContainerYardEnv:
             'constant'
         )
 
-        state = np.concatenate([self.yard_top_view.flatten(),
+        state = np.concatenate([self.stack_min.flatten(),
                                 self.stack_height.flatten(),
                                 self.is_stack_sorted.flatten(),
                                 future_containers])
         return state
 
-    @logger.log_time
-    def random_yard_initialization(self, container_count,cover_tier0):
-        """ the rule in initialization is no container can be on the fly!!"""
-        if not cover_tier0:
-            count = 0
-            while count < container_count:
-                r = np.random.randint(0, self.rows)
-                b = np.random.randint(0, self.bays)
-                new_container = np.random.randint(1, MAX_DWELL_DAYS) / MAX_DWELL_DAYS
-
-                if self.stack_height[r, b] < self.tiers:
-                    if self.stack_height[r, b] > 0:
-                        if self.yard_top_view[r, b] <= new_container: # violation of dwell time
-                            self.is_stack_sorted[r, b] = 0  # when it is not sorted, it is not sorted anymore
-                    self.yard_top_view[r,b] = new_container
-                    self.stack_height[r,b] += 1
-                    count += 1
-        else: # this initialization is used only for testing the ability of dwell time criteria learning
-            for r in range(self.rows):
-                for b in range(self.bays):
-                    self.yard_top_view[r,b] = np.random.randint(1, MAX_DWELL_DAYS) / MAX_DWELL_DAYS
-                    self.stack_height[r,b] = 1
-
-    @logger.log_time
     def step(self, action):
         """ returns next_state, reward, done  """
 
@@ -160,106 +131,185 @@ class ContainerYardEnv:
         bay, row = self.action_to_bay_row(action)
         next_container = self.container_queue.pop(0)  # Remove first container from queue
 
-        if self.stack_height[row,bay] == self.tiers: # tier is full
+        if self.stack_height[row, bay] == self.tiers:  # tier is full
             return self.get_state(), NO_AVAILABLE_SPACE_OR_ON_AIR, False  # tier does not exist
 
         reward = self.calculate_reward(bay, row, next_container)
 
-        if self.yard_top_view[row, bay] <= next_container:
+        if next_container >= self.stack_min[row, bay] and self.stack_height[row, bay] > 0:
             self.is_stack_sorted[row, bay] = 0
 
+        if next_container < self.stack_min[row, bay]:
+            self.stack_min[row, bay] = next_container
 
-        self.yard_top_view[row, bay] = next_container  # Store dwell time , non 0 means the slot is occupied
         self.stack_height[row, bay] += 1
 
         done = len(self.container_queue) == 0  # End episode when all containers are placed
         return self.get_state(), reward, done
 
-    @logger.log_time
     def calculate_reward(self, bay, row, container_dwell):
 
         reward = 0
 
         # large penalty: Placing in a full bay (no valid tier)
-        if self.stack_height[row,bay] == self.tiers : # tier is full .should be filtered out in step function
+        if self.stack_height[row, bay] == self.tiers:  # tier is full .should be filtered out in step function
             raise ValueError("The row, bay here is impossible should be filtered out")
 
         # medium penalty: Bad stacking which shorter stay container is below :(
-        if self.stack_height[row, bay] > 0: # stack is not empty
-            if self.yard_top_view[row, bay] <= container_dwell:
+        if self.stack_height[row, bay] > 0:  # stack is not empty
+            if self.stack_min[row, bay] <= container_dwell:
                 reward += DWELL_VIOLATION_REWARD
-                if self.is_stack_sorted[row,bay] == 1:
+                if self.is_stack_sorted[row, bay] == 1:
                     # now it won't be sorted anymore, the update of is_stack_sorted will be done on step function
                     reward += STACK_SORTING_DAMAGE
             else:
                 reward += DWELL_COMPATIBLE_REWARD
-        else: # stack is empty
+        else:  # stack is empty
             reward += DWELL_COMPATIBLE_REWARD
 
         return reward
 
-    @logger.log_time
     def get_valid_actions(self):
         not_full = self.stack_height < self.tiers
         valid_indices = np.where(not_full)
-        actions = valid_indices[0] * self.bays + valid_indices[1]  # valid_indices[0] : row and  valid_indices[1] :column
+        actions = valid_indices[0] * self.bays + valid_indices[
+            1]  # valid_indices[0] : row and  valid_indices[1] :column
         return actions.tolist()
 
-    @logger.log_time
     def get_valid_actions_for_state(self, state):
-        # unflatten the state and extract only stack height for valid actoin calculation
-        # yard_top_view = state[:self.yard_state_length].reshape((self.rows, self.bays))
+        # unflatten the state and extract only stack height for valid action calculation
+        # stack_min = state[:self.yard_state_length].reshape((self.rows, self.bays))
         # container_queue = state[2 * self.yard_state_length:]
         stacks_count = self.rows * self.bays
-        stack_height = state[stacks_count :2 * stacks_count].reshape((self.rows, self.bays))
+        stack_height = state[stacks_count:2 * stacks_count].reshape((self.rows, self.bays))
 
         not_full = stack_height < self.tiers
         valid_indices = np.where(not_full)
         actions = valid_indices[0] * self.bays + valid_indices[1]
         return actions.tolist()
 
-    @logger.log_time
-    def action_to_bay_row_tier_for_state(self,action, state):
+    def action_to_bay_row_tier_for_state(self, action, state):
         stacks_count = self.rows * self.bays
         stack_height = state[stacks_count:2 * stacks_count].reshape((self.rows, self.bays))
 
-        bay,row = self.action_to_bay_row(action)
+        bay, row = self.action_to_bay_row(action)
 
-        new_tier = stack_height[row,bay] + 1
+        new_tier = stack_height[row, bay] + 1
         return new_tier, row, bay
 
-    @logger.log_time
-    def state_to_3d_yard(self,state):
-        yard3d = np.zeros((self.tiers, self.rows, self.bays), dtype=np.float32)
-        stacks_count = self.rows * self.bays
-        top_view = state[0:stacks_count].reshape((self.rows, self.bays))
-        stack_height = state[stacks_count:2 * stacks_count].reshape((self.rows, self.bays))
 
-        for r in range(self.rows):
-            for b in range(self.bays):
-                if stack_height[r,b] > 0:
-                    yard3d[0: int(stack_height[r,b]) -1 ,r,b] = -1
-                    yard3d[int(stack_height[r,b]) -1 ,r,b] = top_view[r,b]
+# ------------attention like nn structure----------------------
+class YardEncoder(nn.Module):
+    def __init__(self, queue_size, stack_features, hidden_dim, encoded_dim):
+        super().__init__()
+        self.input_dim = queue_size + stack_features
 
-        return yard3d
+        # torch remark: the expected input shape is [*, input_dim] where * can be any number of leading batch dimensions
+        # pytorch's nn.Linear automatically applies the linear layer to the last dimension of the tensor.
+        # as a result we have applied the nn to each stack independently
+        self.encoder = nn.Sequential(
+            nn.Linear(self.input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, encoded_dim)
+        )
+
+    def forward(self, stacks_features, queue):
+        """
+        stacks_features: [B, Bay*Row, #of features per stack ]   eg.:[B, 50, 3]
+        queue: eg. [B, 80]
+        Returns: [B, Bay*Row, encoded_dim] eg. [B, 50, 20]
+        """
+        B, S, _ = stacks_features.shape # B: batch size, S = Bays*Rows (number of stacks), _ # of features per stack
+        # tile queue to shape [batch_size, num_stacks, queue_size]
+        queue_tiled = queue.unsqueeze(1).repeat(1, S, 1)  # ex: [B, 50, 80]
+        x = torch.cat([stacks_features, queue_tiled], dim=-1)  # [B, 50, 83]
+        return self.encoder(x)  # returns -> [B, 50, 20]
+
+
+class StackQValueHead(nn.Module):
+    def __init__(self, input_dim, hidden_dim):
+        super().__init__()
+        self.mlp = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)  # one Q-value per stack
+        )
+
+    def forward(self, fused_stack_vectors):
+        """
+        fused_stack_vectors: [B, 50, 1020]
+        Returns: Q-values: [B, 50]  (input_dim= 1020, output_dim=1)
+        """
+        q_values = self.mlp(fused_stack_vectors)  # [B, 50, 1]
+        return q_values.squeeze(-1)  # [B, 50]
+
 
 class DQN(nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super(DQN, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 64)
-        self.fc2 = nn.Linear(64, 64)
-        # self.fc3 = nn.Linear(128, 256)
-        # self.fc4 = nn.Linear(256, 128)
-        self.fc5 = nn.Linear(64, output_dim)
+    def __init__(self, queue_size, num_stacks, num_stack_features, encoded_dim):
+        super().__init__()
+        self.num_stacks = num_stacks
+        self.stack_encoder = YardEncoder(queue_size=queue_size,
+                                         stack_features=num_stack_features,
+                                         hidden_dim=16, #64
+                                         encoded_dim=encoded_dim)
 
-    @logger.log_time
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        # x = F.relu(self.fc3(x))
-        # x = F.relu(self.fc4(x))
-        x = self.fc5(x)
-        return x  # Outputs Q-values for all actions
+        # q_head, reads gets one yard encoded(with Q) + current stack encoded (withQ) and gets th
+        self.q_head = StackQValueHead(input_dim= num_stacks * encoded_dim + encoded_dim,
+                                      hidden_dim=16 )
+        #ex: input_dim= num_stacks*encoded_dim + encoded_dim : 50 * 20 + 20 = 1020
+
+    # def state_to_stack_queue(self,state):
+    #     # this one is not batched state parsing.
+    #     state = state.view(-1) # because the state has shape [1, ROWS, BAYS,3 + queue]
+    #     stack_features = state[0: ROWS * BAYS * 3].reshape((ROWS, BAYS,3))
+    #     queue = state[ROWS * BAYS * 3:].reshape((NUM_CONTAINERS_PER_EPISODE))
+    #     return stack_features,queue
+
+    def state_to_stack_queue(self, state):
+        # TODO:: temporary this function is defined here I will create a helper class and seperate the business logic from here
+        """
+        state: [B, state_dim]
+        Returns:
+          stack_features: [B, 50, 3]
+          queue: [B, 80]
+        """
+        B = state.shape[0]
+        stack_feat_len = ROWS * BAYS * 3
+        stack_features = state[:, :stack_feat_len].reshape(B, ROWS * BAYS, 3)
+        queue = state[:, stack_feat_len:]
+        return stack_features, queue
+
+    def forward(self, state):
+        """
+        stack_features: [B, 50, 3]
+        queue: [B, 80]
+        Returns: Q-values: [B, 50]
+        """
+        # step 0: convert state to stack_features and queue
+        # I keep this structure for more readability and being similar to other agents.
+        stack_features, queue = self.state_to_stack_queue(state)
+        # here stack_features [B, 50, 3] and  queue: [B, 80]
+
+
+        # Step 1: encode each stack
+        stack_encoded = self.stack_encoder(stack_features, queue)  # [B, 50, 20]
+
+        # Step 2: yard encoding by flattening all stacks encodings
+        yard_encoded = stack_encoded.reshape(stack_encoded.size(0), -1)  # [B, 1000]
+
+        # Step 3: tile yard encoding for each stack
+        yard_tiled = yard_encoded.unsqueeze(1).repeat(1, self.num_stacks, 1)  # [B, 50, 1000]
+
+        # Step 4: concatenate local stack vector with yard vector
+        fused = torch.cat([stack_encoded, yard_tiled], dim=-1)  # [B, 50, 1020]
+
+        # Step 5: predict Q-values per stack
+        return self.q_head(fused)  # [B, 50]
+
+
+# ----------------------------------
 
 class DQNAgent:
     def __init__(self, env):
@@ -271,18 +321,30 @@ class DQNAgent:
 
         # self.q_network = DQNConv(output_dim= self.action_size, num_containers=self.env.queue_length).to(device)
         # self.target_network = DQNConv(output_dim= self.action_size, num_containers=self.env.queue_length).to(device)
-        self.q_network = DQN(self.state_size, self.action_size).to(device)
-        self.target_network = DQN(self.state_size, self.action_size).to(device)
+        # self.q_network = DQN(self.state_size, self.action_size).to(device)
 
+
+        self.q_network = DQN(queue_size=NUM_CONTAINERS_PER_EPISODE,
+                             num_stacks=self.action_size,
+                             num_stack_features=3,
+                             encoded_dim=20).to(device)  # ( queue_size=80, num_stacks=50, stack_features=3):
+
+        self.target_network = DQN(queue_size=NUM_CONTAINERS_PER_EPISODE,
+                                  num_stacks=self.action_size,
+                                  num_stack_features=3,
+                                  encoded_dim=20).to(device)
+
+        # note : pytorch automatically traverse abd handles this through its nn.Module system.
+        # for both encoder and head network the state dictionary will be cloned.
         self.target_network.load_state_dict(self.q_network.state_dict())
+
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=LR)
-        self.qMaxValuesInABatch=[]
-        self.qMinValuesInABatch=[]
+        self.qMaxValuesInABatch = []
+        self.qMinValuesInABatch = []
 
         self.qMaxValuesInOneSample = []
         self.qMinValuesInOneSample = []
 
-    @logger.log_time
     def select_action(self, state):
         """ Choose an action using epsilon-greedy strategy. """
         valid_actions = self.env.get_valid_actions()
@@ -299,7 +361,6 @@ class DQNAgent:
         best_action_idx = torch.argmax(mask).item()  # Select best valid action
         return best_action_idx
 
-    @logger.log_time
     def train(self):
         """ Train the DQN using experience replay. """
         if len(self.memory) < BATCH_SIZE:
@@ -308,7 +369,7 @@ class DQNAgent:
         start_time = time.time()
 
         batch = random.sample(self.memory, BATCH_SIZE)
-        states, actions, rewards, next_states, dones = zip(*batch)  #(state, action, reward, next_state, done)
+        states, actions, rewards, next_states, dones = zip(*batch)  # (state, action, reward, next_state, done)
 
         # Convert NumPy arrays to Tensors more efficiently
         states = torch.tensor(np.array(states), dtype=torch.float32, device=device)
@@ -321,10 +382,10 @@ class DQNAgent:
         next_states = torch.tensor(next_states_np, dtype=torch.float32, device=device)
 
         t2 = time.time()
-        logger.add_time_log(code_block_name="unpack from memory",elapsed_time= t2-start_time)
-        q_values = self.q_network(states)
+        logger.add_time_log(code_block_name="unpack from memory", elapsed_time=t2 - start_time)
+        q_values = self.q_network(states)  #
 
-        #selects the predicted Q-values only for the actions that were actually taken in the sampled experiences.
+        # selects the predicted Q-values only for the actions that were actually taken in the sampled experiences.
         q_values_selected = q_values.gather(1, actions).squeeze(1)
 
         # Log for visualization
@@ -334,11 +395,12 @@ class DQNAgent:
         t3 = time.time()
         logger.add_time_log(code_block_name="read q values", elapsed_time=t3 - t2)
         with torch.no_grad():  # mask invalid moves in the next state
-            next_q_values = self.target_network(next_states)
+            next_q_values = self.target_network(
+                next_states)
             valid_next_q_values = []
-            for idx, nx_state_np in enumerate(next_states_np):# iteration over the batch
+            for idx, nx_state_np in enumerate(next_states_np):  # iteration over the batch
                 valid_moves = self.env.get_valid_actions_for_state(nx_state_np)
-                if valid_moves:
+                if valid_moves: #note for the next state we should also eliminate invalid moves
                     valid_move_tensor = torch.tensor(valid_moves, dtype=torch.long, device=device)
                     q_vals = next_q_values[idx][valid_move_tensor]
                     valid_next_q_values.append(q_vals.max().item())
@@ -352,7 +414,6 @@ class DQNAgent:
         target_q_values = rewards + (GAMMA * valid_next_q_values * (1 - dones))
         loss = F.mse_loss(q_values_selected, target_q_values)
 
-
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -360,10 +421,10 @@ class DQNAgent:
         t5 = time.time()
         logger.add_time_log(code_block_name="calc loss and backward propagation", elapsed_time=t5 - t4)
         # clip gradients to avoid instability because we can have exploding gradiant event
-        #torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
+        # torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
         return loss.item()
 
-@logger.log_time
+
 def run_dqn():
     env = ContainerYardEnv()
     agent = DQNAgent(env)
@@ -371,6 +432,7 @@ def run_dqn():
     episode_losses = []
     epsilon_values = []
     for episode in range(NUM_EPISODES):
+        # state shape will be [BAY*ROW + queue lenght ,]
         state = env.reset(yard_container_count=int(env.tiers * env.rows * env.bays * INITIAL_YARD_OCCUPIED_RATIO),
                           cover_tier0=FILL_TIER0_AS_INITIALIZATION)
         total_reward = 0
@@ -378,8 +440,8 @@ def run_dqn():
         loss_count = 0
 
         for _ in range(NUM_CONTAINERS_PER_EPISODE):
-            action = agent.select_action(state= state)
-            next_state, reward, done = env.step(action) #tier should be removed from the output list of the step func
+            action = agent.select_action(state=state)
+            next_state, reward, done = env.step(action)  # tier should be removed from the output list of the step func
             agent.memory.append((state, action, reward, next_state, done))
             state = next_state
 
@@ -412,16 +474,16 @@ def run_dqn():
     })
     df.to_csv(TRAIN_LOSS_REWARD_PATH, index=False)
 
-
     if DRAW_GRAPH:
-        plot_q_values(qMaxValues=agent.qMaxValuesInABatch,qMinValues=agent.qMinValuesInABatch)
+        plot_q_values(qMaxValues=agent.qMaxValuesInABatch, qMinValues=agent.qMinValuesInABatch)
         plot_learning_progress(episode_rewards, episode_losses, epsilon_values)
+
 
 def run_test_agent(model_path):
     env = ContainerYardEnv()
     agent = DQNAgent(env)
     if os.path.exists(model_path):
-        agent.q_network.load_state_dict(torch.load(model_path,weights_only=True))
+        agent.q_network.load_state_dict(torch.load(model_path, weights_only=True))
         agent.q_network.eval()
         print("\n Loaded trained model!")
 
@@ -434,46 +496,37 @@ def run_test_agent(model_path):
                           cover_tier0=False)
         for stp in range(NUM_CONTAINERS_PER_EPISODE):  # multiple container per episode
             action = agent.select_action(state=state)
+            current_container_in_Q = env.container_queue[0] # it will be poped in the env.step function
+
             next_state, reward, done = env.step(action)
 
-            tier, row, bay = env.action_to_bay_row_tier_for_state(action,state)
-
-            if DRAW_GRAPH:
-                visualizer = YardVisualizer(BAYS, ROWS, TIERS)
-
-                yard3d = env.state_to_3d_yard(state=state)
-                visualizer.set_yard(yard=yard3d)
-                visualizer.draw_yard(allocated_cube_bay=bay,
-                                     allocated_cube_row=row,
-                                     allocated_cube_tier=tier,
-                                     allocated_cube_color=(0, 1, 0, 1))
+            tier, row, bay = env.action_to_bay_row_tier_for_state(action, state)
 
             print(f" Test {test}: Placed container at ({bay}, {row}), Reward: {reward} \n")
             operation["round"].append(test)
             operation["step"].append(stp)
-            operation["currentContainer"].append(env.yard_top_view[row, bay])
+            operation["currentContainer"].append(current_container_in_Q)
             operation["tier"].append(tier)
             operation["row"].append(row)
             operation["bay"].append(bay)
             operation["reward"].append(reward)
 
             print(f" Test {test + 1}: Placed container at ({bay}, {row}), Reward: {reward} \n")
-            state=next_state
+            state = next_state
     df = pd.DataFrame(operation)
     df.to_csv(TEST_OPERATION_PATH, index=False)
 
 
-
-start_time=time.time()
+start_time = time.time()
 print(f"code starting at:{datetime.now()}")
 
-#-----------------
+# -----------------
 
 run_dqn()
 logger.print_log()
 
-#-----------------
+# -----------------
 
-print(f"total learning process time:{timedelta(seconds= time.time() - start_time)}")
+print(f"total learning process time:{timedelta(seconds=time.time() - start_time)}")
 # check model path file name
 run_test_agent(model_path=MODEL_PATH)

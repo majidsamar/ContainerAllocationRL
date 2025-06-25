@@ -1,0 +1,2 @@
+this is the min dwell time, is sorted and stack height
+encoding the whole state in each column
