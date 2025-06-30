@@ -21,56 +21,60 @@ from ContainerAllocationRL.helper.logger import TimeLogger
 logger = TimeLogger()
 
 print("Is CUDA available?", torch.cuda.is_available())
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = "cpu"
 # dqn parameters
-GAMMA = 0.99
-LR = 0.001
-BATCH_SIZE = 128
-MEMORY_SIZE = 1_000_000
-EPSILON_START = 1
-EPSILON_END = 0.005
-EPSILON_DECAY = 0.998
-TARGET_UPDATE = 50
+
 
 # yard parameters
-INITIAL_STACK_MIN_DWELLTIME = 1000  # I put maximum so in the comparison every
+INITIAL_STACK_MIN_DWELLTIME = 0
 INITIAL_YARD_OCCUPIED_RATIO = 0
 MAX_DWELL_DAYS = 20
 BAYS = 4  # X-axis
-ROWS = 3  # Y-axis
+ROWS = 2  # Y-axis
 TIERS = 3  # Stack height
 
 FILL_TIER0_AS_INITIALIZATION = False  # how to initialize the yard block
 
 # rewards
-NO_AVAILABLE_SPACE_OR_ON_AIR = -1000
+NO_AVAILABLE_SPACE = -1000
 LESS_CROWDED_AREA_REWARD = 0
 DWELL_VIOLATION_REWARD = -10
 STACK_SORTING_DAMAGE = -20
-DWELL_COMPATIBLE_REWARD = 1
+DWELL_COMPATIBLE_REWARD = 0
 
 # run parameters
 NUM_CONTAINERS_PER_EPISODE = round(0.9 * BAYS * ROWS * TIERS )
-NUM_EPISODES = 10000
+NUM_EPISODES = 3000
 TEST_EPISODES = 100
+
+
+
+GAMMA = 0.98
+LR = 0.001
+BATCH_SIZE = 64
+MEMORY_SIZE = 1_000_000
+EPSILON_START = 1
+EPSILON_END = 0.005
+EPSILON_DECAY = 0.997
+TARGET_UPDATE = NUM_CONTAINERS_PER_EPISODE * 20
+
+
+
 # "C:\Users\MajidSamar\Desktop\DATA_backup on 25-10-2024 before onedrive activation chaos\pv\unibe\thz\source code\rl test\RL_Project\RL_Tests\containerAllocation\current_allocation\
 # 2d_TV_SH_IS_2d_423_10000_2025_04_06.mdl"
 
 rsn = random.randint(1, 1000)
 
-folder_path = f'ContainerAllocationRL/min_isSorted_encoder/outputs/{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{rsn}'
+folder_path = f'ContainerAllocationRL/min_isSorted_encoder/outputs/MSE_{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{rsn}'
 os.makedirs(folder_path, exist_ok=True)
 
-MODEL_PATH = f'{folder_path}/{rsn}_TVS_{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
+MODEL_PATH = f'{folder_path}/{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
 TRAIN_LOSS_REWARD_PATH = f'{folder_path}/loss_reward_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
 TEST_OPERATION_PATH = f'{folder_path}/test_{rsn}_{datetime.now().strftime("%m_%d_%H_%M")}.csv'
 
 DRAW_GRAPH = True
 
-
-# from google.colab import auth
-# auth.authenticate_user()
 
 np.random.seed(123)
 random.seed(123)
@@ -81,8 +85,7 @@ class ContainerYardEnv:
         self.rows = rows
         self.tiers = tiers
         self.queue_length = NUM_CONTAINERS_PER_EPISODE
-        self.yard_state_length = (
-                                             self.bays * self.rows * 3) + self.queue_length  # 3 = min in each stack, stack height, is sorted
+        self.yard_state_length = (self.bays * self.rows * 3) + self.queue_length  # 3 = min in each stack, stack height, is sorted
 
     def action_to_bay_row(self, action):  # 2d action space, row and tier
         bay = action % BAYS
@@ -92,6 +95,7 @@ class ContainerYardEnv:
     def reset(self, yard_container_count, cover_tier0=False):
         """ Resets the yard and initializes a random state for the number of containers. """
         self.stack_min = np.full((self.rows, self.bays), INITIAL_STACK_MIN_DWELLTIME, dtype=np.float32)
+
         self.stack_height = np.zeros((self.rows, self.bays), dtype=np.float32)
         self.is_stack_sorted = np.ones((self.rows, self.bays), dtype=np.float32)
         self.container_queue = [self.generate_container() for _ in range(NUM_CONTAINERS_PER_EPISODE)]
@@ -99,14 +103,16 @@ class ContainerYardEnv:
 
     def generate_container(self):
         # return round(random.uniform(0, 1), 2) # Random dwell time between 0  and  1 and
-        return np.random.randint(1, MAX_DWELL_DAYS) / MAX_DWELL_DAYS  # Random dwell time between 0  and  1 and
+        return np.random.randint(1, MAX_DWELL_DAYS) / MAX_DWELL_DAYS  # note discrete distribution
+        # Random dwell time between 0  and  1 and (1 in excluded)
 
     def get_state(self):
         future_containers = np.array(self.container_queue)
         future_containers = np.pad(
             future_containers,
             (0, NUM_CONTAINERS_PER_EPISODE - len(future_containers)),
-            'constant'
+            'constant',
+            constant_values=-1  # 0 is  very close to 1/20 which differs alot so -1 is selected as initial value
         )
 
         state = np.concatenate([self.stack_min.flatten(),
@@ -132,16 +138,23 @@ class ContainerYardEnv:
         next_container = self.container_queue.pop(0)  # Remove first container from queue
 
         if self.stack_height[row, bay] == self.tiers:  # tier is full
-            return self.get_state(), NO_AVAILABLE_SPACE_OR_ON_AIR, False  # tier does not exist
+            # should not reach here
+            raise ValueError("The row, bay here is impossible. They should be filtered out!!")
+            #return self.get_state(), NO_AVAILABLE_SPACE , False  # tier does not exist
 
         reward = self.calculate_reward(bay, row, next_container)
 
+        # ------------ updating sorted ------------------
         if next_container >= self.stack_min[row, bay] and self.stack_height[row, bay] > 0:
             self.is_stack_sorted[row, bay] = 0
 
-        if next_container < self.stack_min[row, bay]:
+        # ------------ updating min ------------------
+        if self.stack_min[row, bay] == INITIAL_STACK_MIN_DWELLTIME:
             self.stack_min[row, bay] = next_container
-
+        else:
+            if next_container < self.stack_min[row, bay]:
+                self.stack_min[row, bay] = next_container
+        # ------------ updating height ------------------
         self.stack_height[row, bay] += 1
 
         done = len(self.container_queue) == 0  # End episode when all containers are placed
@@ -151,29 +164,27 @@ class ContainerYardEnv:
 
         reward = 0
 
-        # large penalty: Placing in a full bay (no valid tier)
         if self.stack_height[row, bay] == self.tiers:  # tier is full .should be filtered out in step function
             raise ValueError("The row, bay here is impossible should be filtered out")
 
-        # medium penalty: Bad stacking which shorter stay container is below :(
         if self.stack_height[row, bay] > 0:  # stack is not empty
-            if self.stack_min[row, bay] <= container_dwell:
+            if self.stack_min[row, bay] <= container_dwell: # the = in <= is required because the state has not updated
+                # and we if a container is == it means another container not the container itself.
                 reward += DWELL_VIOLATION_REWARD
                 if self.is_stack_sorted[row, bay] == 1:
                     # now it won't be sorted anymore, the update of is_stack_sorted will be done on step function
                     reward += STACK_SORTING_DAMAGE
             else:
-                reward += DWELL_COMPATIBLE_REWARD
+                reward += DWELL_COMPATIBLE_REWARD # can be rempved is not necessary
         else:  # stack is empty
-            reward += DWELL_COMPATIBLE_REWARD
+            reward += DWELL_COMPATIBLE_REWARD  # can be rempved is not necessary
 
         return reward
 
     def get_valid_actions(self):
         not_full = self.stack_height < self.tiers
         valid_indices = np.where(not_full)
-        actions = valid_indices[0] * self.bays + valid_indices[
-            1]  # valid_indices[0] : row and  valid_indices[1] :column
+        actions = valid_indices[0] * self.bays + valid_indices[1]  # valid_indices[0] : row, valid_indices[1] : col
         return actions.tolist()
 
     def get_valid_actions_for_state(self, state):
@@ -181,7 +192,7 @@ class ContainerYardEnv:
         # stack_min = state[:self.yard_state_length].reshape((self.rows, self.bays))
         # container_queue = state[2 * self.yard_state_length:]
         stacks_count = self.rows * self.bays
-        stack_height = state[stacks_count:2 * stacks_count].reshape((self.rows, self.bays))
+        stack_height = state[stacks_count:2 * stacks_count].reshape((self.rows, self.bays)) #remark: min/ height/ sorted
 
         not_full = stack_height < self.tiers
         valid_indices = np.where(not_full)
@@ -200,9 +211,9 @@ class ContainerYardEnv:
 
 # ------------attention like nn structure----------------------
 class YardEncoder(nn.Module):
-    def __init__(self, queue_size, stack_features, hidden_dim, encoded_dim):
+    def __init__(self, queue_size, stack_features_size, hidden_dim, encoded_dim):
         super().__init__()
-        self.input_dim = queue_size + stack_features
+        self.input_dim = queue_size + stack_features_size
 
         # torch remark: the expected input shape is [*, input_dim] where * can be any number of leading batch dimensions
         # pytorch's nn.Linear automatically applies the linear layer to the last dimension of the tensor.
@@ -210,7 +221,8 @@ class YardEncoder(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(self.input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, encoded_dim)
+            nn.Linear(hidden_dim, encoded_dim),
+            nn.ReLU()
         )
 
     def forward(self, stacks_features, queue):
@@ -219,7 +231,7 @@ class YardEncoder(nn.Module):
         queue: eg. [B, 80]
         Returns: [B, Bay*Row, encoded_dim] eg. [B, 50, 20]
         """
-        B, S, _ = stacks_features.shape # B: batch size, S = Bays*Rows (number of stacks), _ # of features per stack
+        B, S, _ = stacks_features.shape # B: batch size, S = Bays*Rows (number of stacks), _ # of features per stack =3
         # tile queue to shape [batch_size, num_stacks, queue_size]
         queue_tiled = queue.unsqueeze(1).repeat(1, S, 1)  # ex: [B, 50, 80]
         x = torch.cat([stacks_features, queue_tiled], dim=-1)  # [B, 50, 83]
@@ -251,13 +263,13 @@ class DQN(nn.Module):
         super().__init__()
         self.num_stacks = num_stacks
         self.stack_encoder = YardEncoder(queue_size=queue_size,
-                                         stack_features=num_stack_features,
-                                         hidden_dim=16, #64
+                                         stack_features_size=num_stack_features,
+                                         hidden_dim=64,
                                          encoded_dim=encoded_dim)
 
         # q_head, reads gets one yard encoded(with Q) + current stack encoded (withQ) and gets th
         self.q_head = StackQValueHead(input_dim= num_stacks * encoded_dim + encoded_dim,
-                                      hidden_dim=16 )
+                                      hidden_dim=64 )
         #ex: input_dim= num_stacks*encoded_dim + encoded_dim : 50 * 20 + 20 = 1020
 
     # def state_to_stack_queue(self,state):
@@ -268,7 +280,7 @@ class DQN(nn.Module):
     #     return stack_features,queue
 
     def state_to_stack_queue(self, state):
-        # TODO:: temporary this function is defined here I will create a helper class and seperate the business logic from here
+        # TODO:: future temporary this function is defined here I will create a helper class and seperate the business logic from here
         """
         state: [B, state_dim]
         Returns:
@@ -277,8 +289,11 @@ class DQN(nn.Module):
         """
         B = state.shape[0]
         stack_feat_len = ROWS * BAYS * 3
-        stack_features = state[:, :stack_feat_len].reshape(B, ROWS * BAYS, 3)
-        queue = state[:, stack_feat_len:]
+
+        #stack_features = state[:, :stack_feat_len].reshape(B, ROWS * BAYS, 3) #error this one is row major , so fills first column first
+        stack_features = state[:, :stack_feat_len].reshape(B, 3, ROWS * BAYS).transpose(1, 2)
+
+        queue = state[:, stack_feat_len:]  #:: TODO check again this part   do I need reshaping!
         return stack_features, queue
 
     def forward(self, state):
@@ -327,12 +342,12 @@ class DQNAgent:
         self.q_network = DQN(queue_size=NUM_CONTAINERS_PER_EPISODE,
                              num_stacks=self.action_size,
                              num_stack_features=3,
-                             encoded_dim=20).to(device)  # ( queue_size=80, num_stacks=50, stack_features=3):
+                             encoded_dim=40).to(device)  # ( queue_size=80, num_stacks=50, stack_features=3):
 
         self.target_network = DQN(queue_size=NUM_CONTAINERS_PER_EPISODE,
                                   num_stacks=self.action_size,
                                   num_stack_features=3,
-                                  encoded_dim=20).to(device)
+                                  encoded_dim=40).to(device)
 
         # note : pytorch automatically traverse abd handles this through its nn.Module system.
         # for both encoder and head network the state dictionary will be cloned.
@@ -511,7 +526,7 @@ def run_test_agent(model_path):
             operation["bay"].append(bay)
             operation["reward"].append(reward)
 
-            print(f" Test {test + 1}: Placed container at ({bay}, {row}), Reward: {reward} \n")
+
             state = next_state
     df = pd.DataFrame(operation)
     df.to_csv(TEST_OPERATION_PATH, index=False)

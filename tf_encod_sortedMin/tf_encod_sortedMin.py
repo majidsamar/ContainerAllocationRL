@@ -671,7 +671,7 @@ def run_test_agent(model_path):
             action = agent.select_action(state, mask)
 
             next_state, reward, done, next_mask, num_violations = env.step(action)
-
+            mask = next_mask
             tier, row, bay = env.action_to_bay_row_tier_for_state(action, state)
 
             if DRAW_GRAPH:
