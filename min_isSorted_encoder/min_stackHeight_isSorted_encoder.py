@@ -30,33 +30,33 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 INITIAL_STACK_MIN_DWELLTIME = 0
 INITIAL_YARD_OCCUPIED_RATIO = 0
 MAX_DWELL_DAYS = 20
-BAYS = 4  # X-axis
-ROWS = 2  # Y-axis
-TIERS = 3  # Stack height
+BAYS = 9  # X-axis
+ROWS = 3  # Y-axis
+TIERS = 5  # Stack height
 
 FILL_TIER0_AS_INITIALIZATION = False  # how to initialize the yard block
 
 # rewards
 NO_AVAILABLE_SPACE = -1000
 LESS_CROWDED_AREA_REWARD = 0
-DWELL_VIOLATION_REWARD = -10
-STACK_SORTING_DAMAGE = -20
-DWELL_COMPATIBLE_REWARD = 0
+DWELL_VIOLATION_REWARD = -1
+# STACK_SORTING_DAMAGE = -20  in a simple rewarding this is not needed
+# DWELL_COMPATIBLE_REWARD = 0  in a simple rewarding this is not needed
 
 # run parameters
 NUM_CONTAINERS_PER_EPISODE = round(0.9 * BAYS * ROWS * TIERS )
-NUM_EPISODES = 3000
+NUM_EPISODES = 10_000
 TEST_EPISODES = 100
 
 
 
 GAMMA = 0.98
 LR = 0.001
-BATCH_SIZE = 64
-MEMORY_SIZE = 1_000_000
+BATCH_SIZE = 512
+MEMORY_SIZE = 100_000
 EPSILON_START = 1
-EPSILON_END = 0.005
-EPSILON_DECAY = 0.997
+EPSILON_END = 0.01
+EPSILON_DECAY = 0.998
 TARGET_UPDATE = NUM_CONTAINERS_PER_EPISODE * 20
 
 
@@ -76,8 +76,8 @@ TEST_OPERATION_PATH = f'{folder_path}/test_{rsn}_{datetime.now().strftime("%m_%d
 DRAW_GRAPH = True
 
 
-np.random.seed(123)
-random.seed(123)
+# np.random.seed(123)
+# random.seed(123)
 
 class ContainerYardEnv:
     def __init__(self, bays=BAYS, rows=ROWS, tiers=TIERS):
@@ -171,14 +171,9 @@ class ContainerYardEnv:
             if self.stack_min[row, bay] <= container_dwell: # the = in <= is required because the state has not updated
                 # and we if a container is == it means another container not the container itself.
                 reward += DWELL_VIOLATION_REWARD
-                if self.is_stack_sorted[row, bay] == 1:
+                #if self.is_stack_sorted[row, bay] == 1:
                     # now it won't be sorted anymore, the update of is_stack_sorted will be done on step function
-                    reward += STACK_SORTING_DAMAGE
-            else:
-                reward += DWELL_COMPATIBLE_REWARD # can be rempved is not necessary
-        else:  # stack is empty
-            reward += DWELL_COMPATIBLE_REWARD  # can be rempved is not necessary
-
+                #    reward += STACK_SORTING_DAMAGE
         return reward
 
     def get_valid_actions(self):
@@ -532,16 +527,14 @@ def run_test_agent(model_path):
     df.to_csv(TEST_OPERATION_PATH, index=False)
 
 
-start_time = time.time()
-print(f"code starting at:{datetime.now()}")
+def run():
+    start_time = time.time()
+    print(f"code starting at:{datetime.now()}")
+    # -----------------
+    run_dqn()
+    logger.print_log()
+    # -----------------
+    print(f"total learning process time:{timedelta(seconds=time.time() - start_time)}")
+    run_test_agent(model_path=MODEL_PATH)
 
-# -----------------
-
-run_dqn()
-logger.print_log()
-
-# -----------------
-
-print(f"total learning process time:{timedelta(seconds=time.time() - start_time)}")
-# check model path file name
-run_test_agent(model_path=MODEL_PATH)
+run()
