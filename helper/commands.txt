@@ -103,4 +103,7 @@ git reset --hard origin/your-branch-name
 git clean -fd
 
 git reset --hard
+---------------------------------
+sacct -u $USER --format=JobID,JobName,Elapsed,State,Start,End -S 2025-07-10
+
 

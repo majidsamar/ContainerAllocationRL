@@ -29,9 +29,9 @@ print("GPUs:", tf.config.list_physical_devices('GPU'))
 # yard parameters
 INITIAL_YARD_OCCUPIED_RATIO = 0.
 MAX_DWELL_DAYS = 10 # 20
-BAYS = 4  # X-axis
+BAYS = 7  # X-axis
 ROWS = 3  # Y-axis
-TIERS = 3  # Stack height
+TIERS = 5  # Stack height
 FILL_RATIO = 0.9
 NUM_CONTAINERS_PER_EPISODE = round(BAYS * ROWS * TIERS * (FILL_RATIO - INITIAL_YARD_OCCUPIED_RATIO))
 # NUM_CONTAINERS_PER_EPISODE = 100
@@ -47,13 +47,13 @@ DWELL_VIOLATION_REWARD = -1.
 # DWELL_COMPATIBLE_REWARD = 1
 
 #run parameters
-NUM_EPISODES = 10
-TEST_EPISODES = 1
+NUM_EPISODES = 10_000
+TEST_EPISODES = 100
 
 
-rsn = random.randint(10,99)
+rsn = random.randint(1,999)
 
-folder_path = f'ContainerAllocationRL/tf_encod_sortedMin/outputs/{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{rsn}'
+folder_path = f'ContainerAllocationRL/tf_encod_sortedMin/outputs/TF_{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{rsn}'
 os.makedirs(folder_path, exist_ok=True)
 
 MODEL_PATH =f'{folder_path}/{rsn}_tf_encSrtMin_{BAYS}{ROWS}{TIERS}_{NUM_CONTAINERS_PER_EPISODE}_{datetime.now().strftime("%m_%d_%H_%M")}.mdl'
